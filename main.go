@@ -1,49 +1,35 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"path/filepath"
 
 	cert9util "github.com/eyedeekay/cert9util/lib"
 )
 
 func main() {
-	cdbtest, err := cert9util.NewCertificateDB9("cert9.db")
-	if err != nil {
-		panic(err)
-	}
-	defer cdbtest.Close()
-	ccols, err := cdbtest.Columns()
-	if err != nil {
-		panic(err)
-	}
-	for _, col := range ccols {
-		log.Println("cert column:" + col)
+	certFile := flag.String("cert", "", "Path to the certificate file (PEM format)")
+	nickname := flag.String("nickname", "", "Nickname for the certificate")
+	dbPath := flag.String("db", "cert9.db", "Path to cert9.db file")
+	flag.Parse()
+
+	if *certFile == "" || *nickname == "" {
+		log.Fatal("Certificate file and nickname are required")
 	}
 
-	kdbtest, err := cert9util.NewKeyDB9("key4.db")
+	// Open the certificate database
+	db, err := cert9util.NewCertificateDB9(*dbPath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to open database: %v", err)
 	}
-	defer kdbtest.Close()
-	kcols, err := kdbtest.Columns()
+	defer db.Close()
+
+	// Import the certificate
+	err = db.ImportCertificateFromFile(*certFile, *nickname)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to import certificate: %v", err)
 	}
-	for _, col := range kcols {
-		if str, ok := contains(ccols, col); ok {
-			log.Println("key column:"+col, "appears in cert:"+str)
-		} else {
-			log.Println("key column:" + col, "does not appear in cert")
-		}
-	}
-}
 
-func contains(s []string, e string) (string, bool) {
-	for _, a := range s {
-		if a == e {
-			return a, true
-		}
-	}
-	return "", false
-
+	log.Printf("Successfully imported certificate '%s' from %s", *nickname, filepath.Base(*certFile))
 }
